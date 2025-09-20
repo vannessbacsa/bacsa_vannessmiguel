@@ -8,14 +8,72 @@ $content = '
     </div>
 </div>
 
+<!-- Search Form -->
+<div class="card rounded-xl p-6 mb-6">
+    <form method="get" action="' . site_url('students') . '" class="flex flex-col md:flex-row gap-4 items-end">
+        <div class="flex-1">
+            <label for="search" class="block text-sm font-medium text-text-secondary mb-2">Search Students</label>
+            <div class="relative">
+                <input type="text" 
+                       id="search" 
+                       name="q" 
+                       value="' . (isset($search_query) ? htmlspecialchars($search_query) : '') . '" 
+                       placeholder="Search by name or email..." 
+                       class="input-field w-full px-4 py-3 pl-10 rounded-lg text-text-primary placeholder-text-muted focus:outline-none">
+                <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <span>Search</span>
+            </button>
+            ' . (isset($search_query) && !empty($search_query) ? '
+            <a href="' . site_url('students') . '" class="btn-secondary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <span>Clear</span>
+            </a>' : '') . '
+        </div>
+    </form>
+</div>
+
 <div class="flex justify-between items-center mb-8">
-    <h2 class="text-3xl font-light text-text-primary">Student Records</h2>
-    <a href="' . site_url('students/create') . '" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        <span>Add New Student</span>
-    </a>
+    <div>
+        <h2 class="text-3xl font-light text-text-primary">Student Records</h2>
+        ' . (isset($search_query) && !empty($search_query) ? '
+        <div class="mt-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-accent/20 text-accent-light border border-accent/30">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Search results for: "' . htmlspecialchars($search_query) . '"
+            </span>
+        </div>' : '') . '
+    </div>
+    <div class="flex items-center space-x-4">
+        <form method="get" action="' . site_url('students') . '" class="flex items-center space-x-2">
+            <label class="text-text-secondary text-sm font-medium" for="per_page">Per page:</label>
+            <select class="input-field px-3 py-2 rounded-lg text-sm" id="per_page" name="per_page" onchange="this.form.submit()">
+                ' . implode('', array_map(function($n) use ($per_page) {
+                    $selected = (int)($per_page ?? 10) === $n ? 'selected' : '';
+                    return '<option value="' . $n . '" ' . $selected . '>' . $n . '</option>';
+                }, $allowed_per_page ?? [10, 25, 50, 100])) . '
+            </select>
+            ' . (isset($search_query) && !empty($search_query) ? '<input type="hidden" name="q" value="' . htmlspecialchars($search_query) . '">' : '') . '
+        </form>
+        <a href="' . site_url('students/create') . '" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>Add New Student</span>
+        </a>
+    </div>
 </div>
 
 <div class="overflow-x-auto rounded-lg">
@@ -89,6 +147,24 @@ $content .= '
         </tbody>
     </table>
 </div>';
+
+// Add pagination if available
+if (isset($pagination) && !empty($pagination)) {
+    $content .= '
+<div class="mt-8 flex justify-center">
+    <div class="pagination">
+        ' . $pagination . '
+    </div>
+</div>';
+}
+
+// Debug info (remove this later)
+if (isset($per_page)) {
+    $content .= '
+<div class="mt-4 text-center text-sm text-text-muted">
+    Showing ' . (isset($students) ? count($students) : 0) . ' of ' . (isset($total_students) ? $total_students : 0) . ' students (Per page: ' . $per_page . ')
+</div>';
+}
 
 include 'layout.php';
 ?>

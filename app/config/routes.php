@@ -43,10 +43,18 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 |
 */
 
-// Default route
-$router->get('/', 'StudentsController::index');
+// Authentication routes
+$router->match('/', 'AuthController::login', ['GET','POST']);
+$router->match('auth/login', 'AuthController::login', ['GET','POST']);
+$router->match('auth/register', 'AuthController::register', ['GET','POST']);
+$router->get('auth/logout', 'AuthController::logout');
 
-// Student CRUD routes
+// Dashboard routes
+$router->get('dashboard', 'DashboardController::index');
+$router->match('dashboard/update_profile', 'DashboardController::update_profile', ['GET','POST']);
+$router->post('dashboard/upload_profile_image', 'DashboardController::upload_profile_image');
+
+// Student CRUD routes (Admin only)
 $router->get('students', 'StudentsController::index');
 $router->get('students/create', 'StudentsController::create');
 $router->post('students/store', 'StudentsController::store');

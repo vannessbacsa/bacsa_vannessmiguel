@@ -103,6 +103,70 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .pagination ul {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0.5rem;
+        }
+        
+        .pagination li {
+            display: inline-block;
+        }
+        
+        .pagination a,
+        .pagination span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            margin: 0;
+            background: rgba(36, 36, 36, 0.8);
+            border: 1px solid #374151;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            min-width: 2.5rem;
+        }
+        
+        .pagination a:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border-color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .pagination .current {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border-color: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .pagination .disabled {
+            background: rgba(36, 36, 36, 0.4);
+            border-color: #374151;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+        
+        .pagination .disabled:hover {
+            background: rgba(36, 36, 36, 0.4);
+            border-color: #374151;
+            transform: none;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body class="text-text-primary">
@@ -115,24 +179,34 @@
             </h1>
         </div>
 
+        <!-- Back Button -->
+        <div class="mb-6">
+            <a href="<?php echo site_url('dashboard'); ?>" class="btn-secondary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                <span>Back to Dashboard</span>
+            </a>
+        </div>
+
         <!-- Navigation -->
         <div class="card rounded-xl p-6 mb-8">
             <div class="flex justify-center space-x-4 flex-wrap gap-y-4">
                 <a href="<?php echo site_url('students'); ?>" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                     <span>All Students</span>
                 </a>
                 <a href="<?php echo site_url('students/create'); ?>" class="btn-primary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
                     </svg>
                     <span>Add New Student</span>
                 </a>
                 <a href="<?php echo site_url('students/deleted'); ?>" class="btn-secondary px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v1.586a1 1 0 00.293.707l1.5 1.5A2 2 0 007.414 11H8v10a2 2 0 002 2h4a2 2 0 002-2V11h.586a2 2 0 001.414-.586l1.5-1.5A1 1 0 0020 8.414V7a2 2 0 00-2-2h-2"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
                     <span>Soft Deleted</span>
                 </a>

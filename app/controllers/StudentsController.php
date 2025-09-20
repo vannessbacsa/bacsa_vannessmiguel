@@ -6,32 +6,144 @@ class StudentsController extends Controller {
     {
         parent::__construct();
         $this->call->model('StudentModel');
+        $this->call->model('AuthModel');
     }
 
-    // Display all students
+    // Display all students with pagination and search
     public function index() {
-        $data['students'] = $this->StudentModel->get_students_with_timestamps();
-        $data['total_students'] = $this->StudentModel->count_active_students();
+        // Require admin login
+        if (!$this->session->userdata('logged_in') || $this->session->userdata('role') !== 'admin') {
+            $this->session->set_flashdata('error', 'Access denied! Admin privileges required.');
+            redirect('auth/login');
+        }
+
+        // Load pagination library
+        $this->call->library('pagination');
+
+        // Get search query
+        $search_query = isset($_GET['q']) ? trim($_GET['q']) : null;
+
+        // Get current page from query parameter
+        $current_page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+        if ($current_page < 1) { $current_page = 1; }
+
+        // Per-page limiter like in reference project
+        $allowed_per_page = [10, 25, 50, 100];
+        $rows_per_page = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 10;
+        if (!in_array($rows_per_page, $allowed_per_page, true)) { $rows_per_page = 10; }
+
+        // Base URL for pagination links
+        $base_url = 'students';
+
+        // Configure pagination options for query parameters
+        if ($search_query) {
+            $this->pagination->set_options(['page_delimiter' => '/?q='.urlencode($search_query).'&page=']);
+        } else {
+            $this->pagination->set_options(['page_delimiter' => '/?page=']);
+        }
+        
+        $this->pagination->set_theme('custom');
+        $this->pagination->set_custom_classes([
+            'nav'    => 'pagination-nav',
+            'ul'     => 'pagination-list',
+            'li'     => 'pagination-item',
+            'a'      => 'pagination-link',
+            'active' => 'active'
+        ]);
+
+        // Get total rows based on search
+        if ($search_query) {
+            $total_rows = $this->StudentModel->count_search_students($search_query);
+        } else {
+            $total_rows = $this->StudentModel->count_active_students();
+        }
+
+        // Initialize pagination
+        $page_data = $this->pagination->initialize(
+            $total_rows,
+            $rows_per_page,
+            $current_page,
+            $base_url,
+            5 // number of visible page links
+        );
+
+        // Get paginated students based on search
+        $limit_clause = $page_data['limit'];
+        if ($search_query) {
+            $data['students'] = $this->StudentModel->search_students($search_query, $limit_clause);
+        } else {
+            $data['students'] = $this->StudentModel->get_paginated_students($limit_clause);
+        }
+        
+        $data['total_students'] = $total_rows;
+        $data['per_page'] = $rows_per_page;
+        $data['allowed_per_page'] = $allowed_per_page;
+        $data['search_query'] = $search_query;
+
+        // Generate pagination links with per_page and search parameters
+        $links = $this->pagination->paginate();
+        if (strpos($links, 'href=') !== false) {
+            $append = [];
+            if ($rows_per_page !== 10) { $append['per_page'] = $rows_per_page; }
+            if ($search_query) { $append['q'] = $search_query; }
+            if (!empty($append)) {
+                $links = preg_replace_callback('/href=\"([^\"]+)\"/i', function($m) use ($append) {
+                    $url = $m[1];
+                    $sep = (strpos($url, '?') !== false) ? '&' : '?';
+                    foreach ($append as $k => $v) {
+                        if (strpos($url, $k.'=') === false) {
+                            $url .= $sep.rawurlencode($k).'='.rawurlencode((string)$v);
+                            $sep = '&';
+                        }
+                    }
+                    return 'href="'.$url.'"';
+                }, $links);
+            }
+        }
+        $data['pagination'] = $links;
+
         $this->call->view('students/index', $data);
     }
 
     // Show create form
     public function create() {
+        // Require admin login
+        if (!$this->session->userdata('logged_in') || $this->session->userdata('role') !== 'admin') {
+            $this->session->set_flashdata('error', 'Access denied! Admin privileges required.');
+            redirect('auth/login');
+        }
+        
         $this->call->view('students/create');
     }
 
     // Store new student
     public function store() {
+        // Require admin login
+        if (!$this->session->userdata('logged_in') || $this->session->userdata('role') !== 'admin') {
+            $this->session->set_flashdata('error', 'Access denied! Admin privileges required.');
+            redirect('auth/login');
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 // Get input data
                 $first_name = trim($this->io->post('first_name'));
                 $last_name = trim($this->io->post('last_name'));
                 $email = trim($this->io->post('email'));
+                $username = trim($this->io->post('username'));
+                $password = trim($this->io->post('password'));
+                $role = trim($this->io->post('role'));
                 
                 // Basic validation
-                if (empty($first_name) || empty($last_name) || empty($email)) {
+                if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password) || empty($role)) {
                     $this->session->set_flashdata('error', 'All fields are required!');
+                    $this->call->view('students/create');
+                    return;
+                }
+                
+                // Validate role
+                if (!in_array($role, ['admin', 'student'])) {
+                    $this->session->set_flashdata('error', 'Invalid role selected!');
                     $this->call->view('students/create');
                     return;
                 }
@@ -43,17 +155,32 @@ class StudentsController extends Controller {
                     return;
                 }
                 
-                // Create student
+                // Check if username already exists
+                if ($this->StudentModel->username_exists($username)) {
+                    $this->session->set_flashdata('error', 'Username already exists!');
+                    $this->call->view('students/create');
+                    return;
+                }
+                
+                // Prepare student data
                 $student_data = [
                     'first_name' => $first_name,
                     'last_name' => $last_name,
                     'email' => $email
                 ];
                 
-                $result = $this->StudentModel->create_student($student_data);
+                // Prepare auth data
+                $auth_data = [
+                    'username' => $username,
+                    'password' => $password,
+                    'role' => $role
+                ];
+                
+                // Create student with authentication record
+                $result = $this->StudentModel->create_student_with_auth($student_data, $auth_data);
                 
                 if ($result) {
-                    $this->session->set_flashdata('success', 'Student created successfully!');
+                    $this->session->set_flashdata('success', 'Student created successfully with login credentials!');
                     redirect('students');
                 } else {
                     $this->session->set_flashdata('error', 'Failed to create student!');
@@ -71,7 +198,7 @@ class StudentsController extends Controller {
     // Show edit form
     public function edit($id) {
         try {
-            $data['student'] = $this->StudentModel->get_student_by_id($id);
+            $data['student'] = $this->StudentModel->get_student_with_auth($id);
             if (!$data['student']) {
                 $this->session->set_flashdata('error', 'Student not found!');
                 redirect('students');
@@ -91,11 +218,22 @@ class StudentsController extends Controller {
                 $first_name = trim($this->io->post('first_name'));
                 $last_name = trim($this->io->post('last_name'));
                 $email = trim($this->io->post('email'));
+                $username = trim($this->io->post('username'));
+                $password = trim($this->io->post('password'));
+                $role = trim($this->io->post('role'));
                 
                 // Basic validation
-                if (empty($first_name) || empty($last_name) || empty($email)) {
+                if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($role)) {
                     $this->session->set_flashdata('error', 'All fields are required!');
-                    $data['student'] = $this->StudentModel->get_student_by_id($id);
+                    $data['student'] = $this->StudentModel->get_student_with_auth($id);
+                    $this->call->view('students/edit', $data);
+                    return;
+                }
+                
+                // Validate role
+                if (!in_array($role, ['admin', 'student'])) {
+                    $this->session->set_flashdata('error', 'Invalid role selected!');
+                    $data['student'] = $this->StudentModel->get_student_with_auth($id);
                     $this->call->view('students/edit', $data);
                     return;
                 }
@@ -103,35 +241,55 @@ class StudentsController extends Controller {
                 // Check if email already exists for another student
                 if ($this->StudentModel->email_exists($email, $id)) {
                     $this->session->set_flashdata('error', 'Email address already exists for another student!');
-                    $data['student'] = $this->StudentModel->get_student_by_id($id);
+                    $data['student'] = $this->StudentModel->get_student_with_auth($id);
                     $this->call->view('students/edit', $data);
                     return;
                 }
                 
-                // Update student
+                // Check if username already exists for another student
+                if ($this->StudentModel->username_exists($username, $id)) {
+                    $this->session->set_flashdata('error', 'Username already exists for another student!');
+                    $data['student'] = $this->StudentModel->get_student_with_auth($id);
+                    $this->call->view('students/edit', $data);
+                    return;
+                }
+                
+                // Prepare student data
                 $student_data = [
                     'first_name' => $first_name,
                     'last_name' => $last_name,
                     'email' => $email
                 ];
                 
-                $result = $this->StudentModel->update_student($id, $student_data);
+                // Prepare auth data
+                $auth_data = [
+                    'username' => $username,
+                    'role' => $role
+                ];
+                
+                // Add password only if provided
+                if (!empty($password)) {
+                    $auth_data['password'] = $password;
+                }
+                
+                // Update student with authentication record
+                $result = $this->StudentModel->update_student_with_auth($id, $student_data, $auth_data);
                 
                 if ($result) {
                     $this->session->set_flashdata('success', 'Student updated successfully!');
                     redirect('students');
                 } else {
                     $this->session->set_flashdata('error', 'Failed to update student!');
-                    $data['student'] = $this->StudentModel->get_student_by_id($id);
+                    $data['student'] = $this->StudentModel->get_student_with_auth($id);
                     $this->call->view('students/edit', $data);
                 }
             } catch (Exception $e) {
                 $this->session->set_flashdata('error', 'Error updating student: ' . $e->getMessage());
-                $data['student'] = $this->StudentModel->get_student_by_id($id);
+                $data['student'] = $this->StudentModel->get_student_with_auth($id);
                 $this->call->view('students/edit', $data);
             }
         } else {
-            $this->call->view('students/edit', ['student' => $this->StudentModel->get_student_by_id($id)]);
+            $this->call->view('students/edit', ['student' => $this->StudentModel->get_student_with_auth($id)]);
         }
     }
 
